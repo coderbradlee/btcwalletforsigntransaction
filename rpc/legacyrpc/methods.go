@@ -1624,7 +1624,7 @@ func signMessage(icmd interface{}, w *wallet.Wallet) (interface{}, error) {
 }
 
 // signRawTransaction handles the signrawtransaction command.
-func SignRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient *chain.RPCClient) (interface{}, error) {
+func SignRawTransaction(icmd interface{}, w *wallet.Wallet) (interface{}, error) {
 	cmd := icmd.(*btcjson.SignRawTransactionCmd)
 
 	serializedTx, err := decodeHexStr(cmd.RawTx)
@@ -1705,18 +1705,18 @@ func SignRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient *chain.R
 	// querying btcd with getrawtransaction. We queue up a bunch of async
 	// requests and will wait for replies after we have checked the rest of
 	// the arguments.
-	requested := make(map[wire.OutPoint]btcrpcclient.FutureGetTxOutResult)
-	for _, txIn := range tx.TxIn {
-		// Did we get this outpoint from the arguments?
-		if _, ok := inputs[txIn.PreviousOutPoint]; ok {
-			continue
-		}
+	// requested := make(map[wire.OutPoint]btcrpcclient.FutureGetTxOutResult)
+	// for _, txIn := range tx.TxIn {
+	// 	// Did we get this outpoint from the arguments?
+	// 	if _, ok := inputs[txIn.PreviousOutPoint]; ok {
+	// 		continue
+	// 	}
 
-		// Asynchronously request the output script.
-		requested[txIn.PreviousOutPoint] = chainClient.GetTxOutAsync(
-			&txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index,
-			true)
-	}
+	// 	// Asynchronously request the output script.
+	// 	requested[txIn.PreviousOutPoint] = chainClient.GetTxOutAsync(
+	// 		&txIn.PreviousOutPoint.Hash, txIn.PreviousOutPoint.Index,
+	// 		true)
+	// }
 
 	// Parse list of private keys, if present. If there are any keys here
 	// they are the keys that we may use for signing. If empty we will
@@ -1748,17 +1748,17 @@ func SignRawTransaction(icmd interface{}, w *wallet.Wallet, chainClient *chain.R
 	// We have checked the rest of the args. now we can collect the async
 	// txs. TODO: If we don't mind the possibility of wasting work we could
 	// move waiting to the following loop and be slightly more asynchronous.
-	for outPoint, resp := range requested {
-		result, err := resp.Receive()
-		if err != nil {
-			return nil, err
-		}
-		script, err := hex.DecodeString(result.ScriptPubKey.Hex)
-		if err != nil {
-			return nil, err
-		}
-		inputs[outPoint] = script
-	}
+	// for outPoint, resp := range requested {
+	// 	result, err := resp.Receive()
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	script, err := hex.DecodeString(result.ScriptPubKey.Hex)
+	// 	if err != nil {
+	// 		return nil, err
+	// 	}
+	// 	inputs[outPoint] = script
+	// }
 
 	// All args collected. Now we can sign all the inputs that we can.
 	// `complete' denotes that we successfully signed all outputs and that
