@@ -2038,7 +2038,102 @@ func (w *Wallet) SignTransaction(tx *wire.MsgTx, hashType txscript.SigHashType,
 
 	return signErrors, nil
 }
+// The transaction pointed to by tx is modified by this function.
+func (w *Wallet) SignTransactionForkey(tx *wire.MsgTx, hashType txscript.SigHashType) ([]SignatureError, error) {
 
+	var signErrors []SignatureError
+	for i, txIn := range tx.TxIn {		
+			prevHash := &txIn.PreviousOutPoint.Hash
+			prevIndex := txIn.PreviousOutPoint.Index
+			txDetails, err := w.TxStore.TxDetails(prevHash)
+			if err != nil {
+				return nil, fmt.Errorf("Cannot query previous transaction "+
+					"details for %v: %v", txIn.PreviousOutPoint, err)
+			}
+			if txDetails == nil {
+				return nil, fmt.Errorf("%v not found",
+					txIn.PreviousOutPoint)
+			}
+			prevOutScript := txDetails.MsgTx.TxOut[prevIndex].PkScript
+
+		// Set up our callbacks that we pass to txscript so it can
+		// look up the appropriate keys and scripts by address.
+		getKey := txscript.KeyClosure(func(addr btcutil.Address) (
+			*btcec.PrivateKey, bool, error) {
+			address, err := w.Manager.Address(addr)
+			if err != nil {
+				return nil, false, err
+			}
+
+			pka, ok := address.(waddrmgr.ManagedPubKeyAddress)
+			if !ok {
+				return nil, false, errors.New("address is not " +
+					"a pubkey address")
+			}
+
+			key, err := pka.PrivKey()
+			if err != nil {
+				return nil, false, err
+			}
+
+			return key, pka.Compressed(), nil
+		})
+		getScript := txscript.ScriptClosure(func(
+			addr btcutil.Address) ([]byte, error) {
+			// If keys were provided then we can only use the
+			// redeem scripts provided with our inputs, too.
+			
+			address, err := w.Manager.Address(addr)
+			if err != nil {
+				return nil, err
+			}
+			sa, ok := address.(waddrmgr.ManagedScriptAddress)
+			if !ok {
+				return nil, errors.New("address is not a script" +
+					" address")
+			}
+
+			return sa.Script()
+		})
+
+		// SigHashSingle inputs can only be signed if there's a
+		// corresponding output. However this could be already signed,
+		// so we always verify the output.
+		if (hashType&txscript.SigHashSingle) !=
+			txscript.SigHashSingle || i < len(tx.TxOut) {
+
+			script, err := txscript.SignTxOutput(w.ChainParams(),
+				tx, i, prevOutScript, hashType, getKey,
+				getScript, txIn.SignatureScript)
+			// Failure to sign isn't an error, it just means that
+			// the tx isn't complete.
+			if err != nil {
+				signErrors = append(signErrors, SignatureError{
+					InputIndex: uint32(i),
+					Error:      err,
+				})
+				continue
+			}
+			txIn.SignatureScript = script
+		}
+
+		// Either it was already signed or we just signed it.
+		// Find out if it is completely satisfied or still needs more.
+		vm, err := txscript.NewEngine(prevOutScript, tx, i,
+			txscript.StandardVerifyFlags, nil,nil,0)
+		if err == nil {
+			err = vm.Execute()
+		}
+		if err != nil {
+			signErrors = append(signErrors, SignatureError{
+				InputIndex: uint32(i),
+				Error:      err,
+			})
+		}
+	}
+
+	return signErrors, nil
+}
 // PublishTransaction sends the transaction to the consensus RPC server so it
 // can be propigated to other nodes and eventually mined.
 //

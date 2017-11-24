@@ -1764,7 +1764,8 @@ func SignRawTransaction(icmd interface{}, w *wallet.Wallet) (interface{}, error)
 	// `complete' denotes that we successfully signed all outputs and that
 	// all scripts will run to completion. This is returned as part of the
 	// reply.
-	signErrs, err := w.SignTransaction(&tx, hashType, inputs, keys, scripts)
+	// signErrs, err := w.SignTransaction(&tx, hashType, inputs, keys, scripts)
+	signErrs, err := w.SignTransactionForkey(&tx, hashType)
 	if err != nil {
 		return nil, err
 	}
