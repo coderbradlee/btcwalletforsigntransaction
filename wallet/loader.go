@@ -105,7 +105,7 @@ func CreateNewWallet(pubPassphrase, privPassphrase, seed []byte) (*Wallet, error
 	}
 	db, err := walletdb.Create("bdb", dbPath)
 	if err != nil {
-		fmt.Println("xxxxxxxxxxxxx")
+		fmt.Println(dbPath)
 		return nil, err
 	}
 
