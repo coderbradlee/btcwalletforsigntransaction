@@ -88,7 +88,7 @@ func (l *Loader) RunAfterLoad(fn func(*Wallet)) {
 // passphrases.  The seed is optional.  If non-nil, addresses are derived from
 // this seed.  If nil, a secure random seed is generated.
 func CreateNewWallet(pubPassphrase, privPassphrase, seed []byte) (*Wallet, error) {
-	dbPath := filepath.Join("./wallet", "tempwallet")
+	dbPath := filepath.Join("./wallet", "tempwallet.db")
 	exists, err := fileExists(dbPath)
 	if err != nil {
 		return nil, err
