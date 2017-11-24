@@ -89,7 +89,7 @@ func (l *Loader) RunAfterLoad(fn func(*Wallet)) {
 // passphrases.  The seed is optional.  If non-nil, addresses are derived from
 // this seed.  If nil, a secure random seed is generated.
 func CreateNewWallet(pubPassphrase, privPassphrase, seed []byte) (*Wallet, error) {
-	dbPath := filepath.Join("./wallet", "tempwallet.db")
+	dbPath := filepath.Join("./walletdb", "tempwallet.db")
 	exists, err := fileExists(dbPath)
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func CreateNewWallet(pubPassphrase, privPassphrase, seed []byte) (*Wallet, error
 	}
 
 	// Create the wallet database backed by bolt db.
-	err = os.MkdirAll("./wallet", 0700)
+	err = os.MkdirAll("./walletdb", 0700)
 	if err != nil {
 		return nil, err
 	}
