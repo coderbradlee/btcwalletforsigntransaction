@@ -84,6 +84,45 @@ func (l *Loader) RunAfterLoad(fn func(*Wallet)) {
 		l.mu.Unlock()
 	}
 }
+// CreateNewWallet creates a new wallet using the provided public and private
+// passphrases.  The seed is optional.  If non-nil, addresses are derived from
+// this seed.  If nil, a secure random seed is generated.
+func CreateNewWallet(pubPassphrase, privPassphrase, seed []byte) (*Wallet, error) {
+	dbPath := filepath.Join("./wallet", "tempwallet")
+	exists, err := fileExists(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrExists
+	}
+
+	// Create the wallet database backed by bolt db.
+	err = os.MkdirAll("./wallet", 0700)
+	if err != nil {
+		return nil, err
+	}
+	db, err := walletdb.Create("bdb", dbPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize the newly created database for the wallet before opening.
+	err = Create(db, pubPassphrase, privPassphrase, seed, &chaincfg.TestNet3Params)
+	if err != nil {
+		return nil, err
+	}
+
+	// Open the newly-created wallet.
+	w, err := Open(db, pubPassphrase, nil, &chaincfg.TestNet3Params)
+	if err != nil {
+		return nil, err
+	}
+	w.Start()
+
+	// l.onLoaded(w, db)
+	return w, nil
+}
 
 // CreateNewWallet creates a new wallet using the provided public and private
 // passphrases.  The seed is optional.  If non-nil, addresses are derived from
